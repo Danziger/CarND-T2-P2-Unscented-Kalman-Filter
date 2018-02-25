@@ -3,7 +3,7 @@
 
 
 #include "MeasurementPackage.h"
-#include "EKF.h"
+#include "UKF.h"
 #include "Eigen/Dense"
 
 #include <vector>
@@ -15,10 +15,10 @@ using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
 
-class EKFTracker {
+class UKFTracker {
 
-    // The Extended Kalman Filter (EKF) instance:
-    EKF ekf_;
+    // The Unscented Kalman Filter (UKF) instance:
+    UKF ukf_;
 
     // Indicates if the EKF state has been initialized (first measurement):
     bool is_initialized_;
@@ -35,9 +35,9 @@ class EKFTracker {
 
 public:
 
-    EKFTracker();
+    UKFTracker();
 
-    virtual ~EKFTracker();
+    virtual ~UKFTracker();
 
     /**
     * Run the whole flow of the KF/EKF from here.
