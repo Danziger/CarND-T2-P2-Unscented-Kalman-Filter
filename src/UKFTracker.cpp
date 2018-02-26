@@ -1,12 +1,9 @@
-#include "UKFTracker.h"
+﻿#include "UKFTracker.h"
 #include "Eigen/Dense"
 
 #include <iostream>
-
-using Eigen::MatrixXd;
-using Eigen::VectorXd;
-using std::vector;
-
+#include <iomanip>
+#include <limits>
 
 /*
 
@@ -24,38 +21,79 @@ UKFTracker::UKFTracker() {
     is_initialized_ = false;
     previous_timestamp_ = 0;
 
+
+    // Sensor measurement noises:
+    // DO NOT MODIFY measurement noise values below these are provided by the sensor manufacturer.
+
+    // Laser measurement noise standard deviation position1 in m:
+    const double std_laspx = 0.15;
+
+    // Laser measurement noise standard deviation position2 in m:
+    const double std_laspy = 0.15;
+
+    // Radar measurement noise standard deviation radius in m:
+    const double std_radr = 0.3;
+
+    // Radar measurement noise standard deviation angle in rad:
+    const double std_radphi = 0.03;
+
+    // Radar measurement noise standard deviation radius change in m/s:
+    const double std_radrd = 0.3;
+
+    // DO NOT MODIFY measurement noise values above these are provided by the sensor manufacturer.
+
+
+    // Measurement covariance matrixes:
+
+    MatrixXd R_lidar(2, 2);
+    MatrixXd R_radar(3, 3);
+
+    R_lidar <<
+        std_laspx * std_laspx, 0,
+        0, std_laspy * std_laspy;
+
+    R_radar <<
+        std_radr * std_radr, 0, 0,
+        0, std_radphi * std_radphi, 0,
+        0, 0, std_radrd * std_radrd;
+
     // State covariance matrix:
     MatrixXd P(5, 5);
 
-    // TODO: Try to unitilize it using the noise values
+    // TODO: Try to initilize it using the noise values
     // See lesson 32
 
     P <<
-        1, 0, 0, 0, 0,
-        0, 1, 0, 0, 0,
-        0, 0, 1000, 0, 0,
-        0, 0, 0, 1000, 0,
-        0, 0, 0, 0, 1000,
+        2, 0, 0, 0, 0,
+        0, 4, 0, 0, 0,
+        0, 0, 1, 0, 0,
+        0, 0, 0, 0.5, 0,
+        0, 0, 0, 0, 0.5;
 
     // INITIALIZE UKF:
 
-    ukf_.initStateCovarianceMatrix(P);
-    ukf_.initNoise(30, 30, 0.15, 0.15, 0.3, 0.03, 0.3); 
+    ukf_.initMatrixes(P, R_lidar, R_radar);
 
-    // NOISES LEGEND:
-
+    // Adjust these noises:
     // Process noise standard deviation longitudinal acceleration in m/s^2
     // Process noise standard deviation yaw acceleration in rad/s^2
+    
+    const double std_a = 1;
+    const double std_yawdd = 0.5;
 
-    // DO NOT MODIFY measurement noise values below these are provided by the sensor manufacturer.
+    ukf_.initNoise(std_a, std_yawdd);
+                 
+    cout
+        << setprecision(2) << fixed
+        << endl
+        << "──────────────────────────────────────────────────────" << endl
+        << endl
+        << " STD DEV LNG ACC = " << setfill(' ') << setw(5) << std_a << " MET / S ^ 2" << endl
+        << " STD DEV YAW ACC = " << setfill(' ') << setw(5) << std_yawdd << " RAD / S ^ 2" << endl
+        << endl
+        << "──────────────────────────────────────────────────────" << endl;
 
-    // Laser measurement noise standard deviation position1 in m
-    // Laser measurement noise standard deviation position2 in m
-    // Radar measurement noise standard deviation radius in m
-    // Radar measurement noise standard deviation angle in rad
-    // Radar measurement noise standard deviation radius change in m/s
-
-    //DO NOT MODIFY measurement noise values above these are provided by the sensor manufacturer.
+    // TODO: Add lambda here
 }
 
 
@@ -122,7 +160,7 @@ void UKFTracker::initialize(const MeasurementPackage &pack) {
     }
 
     // OUTPUT initial value:
-    // std::cout << "INITIAL x = " << ekf_.getCurrentState().transpose() << std::endl;
+    // cout << "INITIAL x = " << ekf_.getCurrentState().transpose() << endl;
 
     previous_timestamp_ = pack.timestamp_;
     is_initialized_ = true;

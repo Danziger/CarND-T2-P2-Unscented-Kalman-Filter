@@ -1,11 +1,15 @@
-#include "Tools.h"
+﻿#include "Tools.h"
 #include "UKFTracker.h"
+#include "colors.h"
 
 #include "json.hpp"
 
 #include <uWS/uWS.h>
-#include <iostream>
 #include <math.h>
+#include <time.h>
+#include <iostream>
+#include <iomanip>
+#include <limits>
 
 
 #define SENSOR 'B'
@@ -18,14 +22,14 @@ using json = nlohmann::json;
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
 // else the empty string will be returned.
-std::string hasData(std::string s) {
+string hasData(string s) {
     auto found_null = s.find("null");
     auto b1 = s.find_first_of("[");
     auto b2 = s.find_first_of("]");
 
-    if (found_null != std::string::npos) {
+    if (found_null != string::npos) {
         return "";
-    } else if (b1 != std::string::npos && b2 != std::string::npos) {
+    } else if (b1 != string::npos && b2 != string::npos) {
         return s.substr(b1, b2 - b1 + 1);
     }
 
@@ -44,13 +48,19 @@ int main() {
     vector<VectorXd> estimations;
     vector<VectorXd> ground_truth;
 
+    // To measure execution time:
+    long double time = 0;
+    int points = 0;
+
     // MESSAGE PROCESSING:
 
     h.onMessage([
+        &time,
+        &points,
         &tracker,
-            &tools,
-            &estimations,
-            &ground_truth
+        &tools,
+        &estimations,
+        &ground_truth
     ](
         uWS::WebSocket<uWS::SERVER> ws,
         char *data,
@@ -64,12 +74,12 @@ int main() {
 
         if (length && length > 2 && data[0] == '4' && data[1] == '2') {
 
-            const auto s = hasData(std::string(data));
+            const auto s = hasData(string(data));
 
             if (s != "") {
                 const auto j = json::parse(s);
 
-                std::string event = j[0].get<std::string>();
+                string event = j[0].get<string>();
 
                 if (event == "telemetry") {
                     // j[1] is the data JSON object
@@ -145,30 +155,52 @@ int main() {
 
                     ground_truth.push_back(gt_values);
 
+                    // Measure start time:
+                    clock_t begin = clock();
+
                     // Call ProcessMeasurment(meas_package) for Kalman filter
                     tracker.processMeasurement(meas_package);
 
                     // Push the current estimated x, y positon from the Kalman filter's state vector
-                    VectorXd state(5);
-                    state = tracker.getCurrentState();
+                    VectorXd state = tracker.getCurrentState();
 
-                    const double px = state(0);
-                    const double py = state(1);
-                    const double v = state(2);
-                    const double yaw = state(3);
+                    // Measure end time:
+                    clock_t end = clock();
 
-                    VectorXd estimate(4);
-                    estimate(0) = px;
-                    estimate(1) = py;
-                    estimate(2) = v * cos(yaw); // vx
-                    estimate(3) = v * sin(yaw); // vy
+                    // Update average time:
+                    time += (long double)(end - begin) / CLOCKS_PER_SEC;
 
-                    std::cout << "STATE = " << state << std::endl;
+                    // Get px and py and save the state:
+                    const float px = state(0);
+                    const float py = state(1);
 
-                    estimations.push_back(estimate);
+                    estimations.push_back(state);
 
-                    // Calculate RMSE
+                    // Calculate RMSE:
                     VectorXd RMSE = tools.calculateRMSE(estimations, ground_truth);
+
+                    const float RMSE_X = RMSE(0);
+                    const float RMSE_Y = RMSE(1);
+                    const float RMSE_VX = RMSE(2);
+                    const float RMSE_VY = RMSE(3);
+
+                    // Print stats:
+
+                    if (points++ % 10 == 0) {
+                        cout
+                            << "      │         │        │        │         │" << endl
+                            << "    # │    TIME │ RMSE X │ RMSE Y │ RMSE VX │ RMSE VY" << endl;
+                    }
+
+                    cout
+                        << setprecision(0) << fixed
+                        << " " << setfill(' ') << setw(4) << points << " │ "
+                        << setfill(' ') << setw(4) << 1000000 * time / points << " us" << " │ "
+                        << setprecision(3) << fixed
+                        << " " << RMSE_X << " │ "
+                        << " " << RMSE_Y << " │ "
+                        << "  " << RMSE_VX << " │ "
+                        << "  " << RMSE_VY << endl;
 
                     // Send estimated position and RMSEs back to the simulator:
                     json msgJson;
@@ -178,22 +210,22 @@ int main() {
                     msgJson["estimate_y"] = py;
 
                     // RMSEs:
-                    msgJson["rmse_x"] = RMSE(0);
-                    msgJson["rmse_y"] = RMSE(1);
-                    msgJson["rmse_vx"] = RMSE(2);
-                    msgJson["rmse_vy"] = RMSE(3);
+                    msgJson["rmse_x"] = RMSE_X;
+                    msgJson["rmse_y"] = RMSE_Y;
+                    msgJson["rmse_vx"] = RMSE_VX;
+                    msgJson["rmse_vy"] = RMSE_VY;
 
                     auto msg = "42[\"estimate_marker\"," + msgJson.dump() + "]";
 
                     // Log it:
-                    std::cout << msg << std::endl << std::endl;
+                    // cout << msg << endl << endl;
 
                     // Send it:
                     ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
 
                 }
             } else {
-                std::string msg = "42[\"manual\",{}]";
+                string msg = "42[\"manual\",{}]";
 
                 ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
             }
@@ -204,7 +236,7 @@ int main() {
     // We don't need this since we're not using HTTP but if it's removed the program
     // doesn't compile :-(
     h.onHttpRequest([](uWS::HttpResponse *res, uWS::HttpRequest req, char *data, size_t, size_t) {
-        const std::string s = "<h1>Hello world!</h1>";
+        const string s = "<h1>Hello world!</h1>";
 
         if (req.getUrl().valueLength == 1) {
             res->end(s.data(), s.length());
@@ -215,21 +247,34 @@ int main() {
     });
 
     h.onConnection([&h](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
-        std::cout << "Connected!" << std::endl << std::endl;
+
+        cout
+            << endl
+            << " Connected!" << endl
+            << endl
+            << "──────────────────────────────────────────────────────" << endl
+            << endl;
+
     });
 
     h.onDisconnection([&h](uWS::WebSocket<uWS::SERVER> ws, int code, char *message, size_t length) {
         ws.close();
 
-        std::cout << "Disconnected!" << std::endl << std::endl << std::endl;
+        cout << "Disconnected!" << endl << endl << endl;
     });
 
     const int port = 4567;
 
     if (h.listen(port)) {
-        std::cout << std::endl << "Listening on port " << port << "..." << std::endl << std::endl;
+
+        cout
+            << endl
+            << " Listening on port " << port << "..." << endl
+            << endl
+            << "──────────────────────────────────────────────────────" << endl;
+
     } else {
-        std::cerr << std::endl << "Failed to listen on port" << port << "!" << std::endl << std::endl;
+        cerr << endl << "Failed to listen on port" << port << "!" << endl << endl;
 
         return -1;
     }

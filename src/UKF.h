@@ -2,6 +2,7 @@
 #define UKF_H
 
 
+#include "Tools.h"
 #include "Eigen/Dense"
 
 
@@ -17,6 +18,10 @@ class UKF {
     // State covariance matrix:
     MatrixXd P_;
 
+    // Measurement covariance matrixes:
+    MatrixXd R_lidar_;
+    MatrixXd R_radar_;
+
     // Predicted sigma points matrix:
     MatrixXd Xsig_pred_;
 
@@ -25,21 +30,6 @@ class UKF {
 
     // Process noise standard deviation yaw acceleration in rad/s^2:
     double std_yawdd_;
-
-    // Laser measurement noise standard deviation position1 in m:
-    double std_laspx_;
-
-    // Laser measurement noise standard deviation position2 in m:
-    double std_laspy_;
-
-    // Radar measurement noise standard deviation radius in m:
-    double std_radr_;
-
-    // Radar measurement noise standard deviation angle in rad:
-    double std_radphi_;
-
-    // Radar measurement noise standard deviation radius change in m/s:
-    double std_radrd_;
 
     // Weights of sigma points:
     VectorXd weights_;
@@ -50,11 +40,23 @@ class UKF {
     */
     MatrixXd calculateAugmentedSigmaPoints();
 
-
     /**
     * A helper method to predict sigma points at timestep k + 1
     */
     MatrixXd predictSigmaPoints(const double dt, MatrixXd Xsig_aug);
+
+    /**
+    * Performs all the common update steps for lidar and radar (in measurement
+    * space)
+    */
+    void update(
+        const VectorXd z,
+        const MatrixXd Zsig,
+        const MatrixXd R,
+        const double weight0,
+        const double weightN,
+        const int N_Z
+    );
 
 public:
 
@@ -66,7 +68,11 @@ public:
     * Initializes the state covariance matrix.
     * @param P_in State covariance matrix
     */
-    void initStateCovarianceMatrix(const MatrixXd &P_in);
+    void initMatrixes(
+        const MatrixXd &P,
+        const MatrixXd &R_lidar,
+        const MatrixXd &R_radar
+    );
 
     /**
     * Initializes the current state. 
@@ -82,18 +88,10 @@ public:
     /**
     * Initializes the process and measurement noises.
     */
-    void initNoise(
-        const float std_a,
-        const float std_yawdd,
-        const float std_laspx,
-        const float std_laspy,
-        const float std_radr,
-        const float std_radphi,
-        const float std_radrd
-    );
+    void initNoise(const float std_a, const float std_yawdd);
 
     /**
-    * Get the current filter state = px, py, vx, vy
+    * Get the current filter state as [px, py, vx, vy]
     */
     VectorXd getCurrentState();
 

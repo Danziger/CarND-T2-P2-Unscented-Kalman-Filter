@@ -20,12 +20,17 @@ public:
     virtual ~Tools();
 
     /**
-    * A helper method to calculate RMSE.
+    * Helper method to calculate RMSE.
     */
     VectorXd calculateRMSE(
         const vector<VectorXd> &estimations,
         const vector<VectorXd> &groundTruth
     );
+
+    /**
+    * Helper method to normalize angles that will hopefully be inlined by the compiler.
+    */
+    static double normalizeAngle(double angle);
 };
 
 

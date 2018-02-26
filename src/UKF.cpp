@@ -21,7 +21,7 @@ using Eigen::VectorXd;
 
 
 MatrixXd UKF::calculateAugmentedSigmaPoints() {
-    std::cout << "START calculateAugmentedSigmaPoints" << std::endl;
+    // std::cout << "START calculateAugmentedSigmaPoints" << std::endl;
 
     // Create augmented covariance matrix and sigma point matrix:
     MatrixXd P_aug = MatrixXd(N_A, N_A);
@@ -41,7 +41,7 @@ MatrixXd UKF::calculateAugmentedSigmaPoints() {
     P_aug(5, 5) = std_a_ * std_a_;
     P_aug(6, 6) = std_yawdd_ * std_yawdd_;
 
-    std::cout << "P_aug" << std::endl << std::endl << P_aug << std::endl << std::endl;
+    // std::cout << "P_aug" << std::endl << std::endl << P_aug << std::endl << std::endl;
 
 
     // Create square root matrix:
@@ -58,14 +58,14 @@ MatrixXd UKF::calculateAugmentedSigmaPoints() {
     Xsig_aug.block(0, 1, N_A, N_A) = replicated_mean + matrix_sqrt_term;
     Xsig_aug.block(0, N_A + 1, N_A, N_A) = replicated_mean - matrix_sqrt_term;
 
-    std::cout << "Xsig_out" << std::endl << std::endl << Xsig_aug << std::endl << std::endl;
+    // std::cout << "Xsig_out" << std::endl << std::endl << Xsig_aug << std::endl << std::endl;
 
     return Xsig_aug;
 }
 
 
 MatrixXd UKF::predictSigmaPoints(const double dt, const MatrixXd Xsig_aug) {
-    std::cout << "START predictSigmaPoints" << std::endl;
+    // std::cout << "START predictSigmaPoints" << std::endl;
 
     // Create matrix with predicted sigma points as columns:
     MatrixXd Xsig_pred = MatrixXd(N_X, N_SIGMA);
@@ -134,6 +134,78 @@ MatrixXd UKF::predictSigmaPoints(const double dt, const MatrixXd Xsig_aug) {
 }
 
 
+void UKF::update(
+    const VectorXd z,
+    const MatrixXd Zsig,
+    const MatrixXd R,
+    const double weight0,
+    const double weightN,
+    const int N_Z
+) {
+    // Create and calculate mean predicted measurement:
+
+    VectorXd z_pred = weight0 * Zsig.col(0); // First term
+
+    for (int i = 1; i < N_SIGMA; ++i) {
+        z_pred += weightN * Zsig.col(i); // Terms 1..N_SIGMA
+    }
+
+    // Create measurement covariance matrix S and cross correlation matrix TC:
+    MatrixXd S = MatrixXd(N_Z, N_Z);
+    MatrixXd Tc = MatrixXd(N_X, N_Z);
+
+    // Calculate initial S:
+    VectorXd diffZ0 = Zsig.col(0) - z_pred;
+    diffZ0(1) = Tools::normalizeAngle(diffZ0(1)); // Normalize angle in range [-PI, PI]
+
+    S = weight0 * diffZ0 * diffZ0.transpose();
+
+    // Calculate initial Tc:
+    VectorXd diffX0 = Xsig_pred_.col(0) - x_;
+    diffX0(3) = Tools::normalizeAngle(diffX0(3)); // Normalize angle in range [-PI, PI]
+
+    Tc = weight0 * diffX0 * diffZ0.transpose();
+
+    // Calculate S and Tc (terms 1..N_SIGMA):
+
+    for (int i = 1; i < N_SIGMA; ++i) {
+        // Calculate S's term i:
+        VectorXd diffZ = Zsig.col(i) - z_pred;
+
+        // TODO: BAAAAAAAAAAAAD!
+        if (N_Z == 3) {
+            diffZ(1) = Tools::normalizeAngle(diffZ(1)); // Normalize angle in range [-PI, PI]
+        }
+
+        S += weightN * diffZ * diffZ.transpose();
+
+        // Calculate Tc's term i:
+        VectorXd diffX = Xsig_pred_.col(i) - x_;
+        diffX(3) = Tools::normalizeAngle(diffX(3)); // Normalize angle in range [-PI, PI]
+
+        Tc += weightN * diffX * diffZ.transpose();
+    } 
+
+    // Add measurement covariance matrix:
+    S += R;
+
+    // Calculate Kalman gain K:
+    const MatrixXd K = Tc * S.inverse();
+
+    // Update state mean and covariance matrix:
+    VectorXd diffZ = z - z_pred;
+
+    // TODO: BAAAAAAAAAAAAD!
+    if (N_Z == 3) {
+        diffZ(1) = Tools::normalizeAngle(diffZ(1)); // Normalize angle in range [-PI, PI]
+    }
+
+    // Update state mean and covariance matrix:
+    x_ += K * diffZ;
+    P_ -= K * S * K.transpose();
+}
+
+
 // PUBLIC:
 
 
@@ -142,8 +214,14 @@ UKF::UKF() {}
 UKF::~UKF() {}
 
 
-void UKF::initStateCovarianceMatrix(const MatrixXd &P) {
+void UKF::initMatrixes(
+    const MatrixXd &P,
+    const MatrixXd &R_lidar,
+    const MatrixXd &R_radar
+) {
     P_ = P;
+    R_lidar_ = R_lidar;
+    R_radar_ = R_radar;
 }
 
 
@@ -158,38 +236,33 @@ void UKF::initState(
 
     x_ << px, py, v_abs, yaw_angle, yaw_rate;
 
-    std::cout << "END initState" << std::endl;
+    // std::cout << "END initState" << std::endl;
 }
 
 
-void UKF::initNoise(
-    const float std_a,
-    const float std_yawdd,
-    const float std_laspx,
-    const float std_laspy,
-    const float std_radr,
-    const float std_radphi,
-    const float std_radrd
-) {
+void UKF::initNoise(const float std_a, const float std_yawdd) {
     std_a_ = std_a;
     std_yawdd_ = std_yawdd;
-    std_laspx_ = std_laspx;
-    std_laspy_ = std_laspy;
-    std_radr_ = std_radr;
-    std_radphi_ = std_radphi;
-    std_radrd_ = std_radrd;
 }
 
 
 VectorXd UKF::getCurrentState() {
-    std::cout << "START getCurrentState" << std::endl;
+    // std::cout << "START getCurrentState" << std::endl;
 
-    return x_;
+    const double px = x_(0);
+    const double py = x_(1);
+    const double v = x_(2);
+    const double yaw = x_(3);
+
+    VectorXd estimate(4);
+    estimate << px, py, v * cos(yaw), v * sin(yaw); // px, py, vx, vy
+
+    return estimate;
 }
 
 
 void UKF::predict(const double dt) {
-    std::cout << "START predict" << std::endl;
+    // std::cout << "START predict" << std::endl;
 
     // Calculate sigma points and predict sigma points at timestep k + 1:
 
@@ -220,16 +293,9 @@ void UKF::predict(const double dt) {
     // Predict state covariance matrix:
 
     // TODO: Could be DRY-ed
-    // TODO: Normalization stuff could go to tools as an inline function
 
     VectorXd diff = Xsig_pred.col(0) - x;
-
-    // Normalize angle in range [-PI, PI]:
-
-    const float yaw = diff(3);
-    const int times = yaw / M_PI;
-
-    diff(3) = yaw - M_PI * (times >= 0 ? ceil(times) : floor(times));
+    diff(3) = Tools::normalizeAngle(diff(3)); // Normalize angle in range [-PI, PI]
 
     // Update predicted covariance matrix:
 
@@ -237,13 +303,7 @@ void UKF::predict(const double dt) {
 
     for (int i = 1; i < N_SIGMA; ++i) {
         VectorXd diff = Xsig_pred.col(i) - x;
-
-        // Normalize angle in range [-PI, PI]:
-
-        const float yaw = diff(3);
-        const int times = yaw / M_PI;
-
-        diff(3) = yaw - M_PI * (times >= 0 ? ceil(times) : floor(times));
+        diff(3) = Tools::normalizeAngle(diff(3)); // Normalize angle in range [-PI, PI]
 
         // Update predicted covariance matrix:
 
@@ -257,31 +317,31 @@ void UKF::predict(const double dt) {
 }
 
 
+// TODO: NIS
+
 void UKF::updateLidar(const VectorXd &z) {
-    std::cout << "START updateLidar" << std::endl;
+    // std::cout << "START updateLidar" << std::endl;
 
-    /**
-    TODO:
+    const short N_Z = 2;
 
-    Complete this function! Use lidar data to update the belief about the object's
-    position. Modify the state vector, x_, and covariance, P_.
+    // Calculate weights:
 
-    You'll also need to calculate the lidar NIS.
-    */
+    const double divisor = LAMBDA + N_A; // TODO: This could be 0
+    const double weight0 = LAMBDA / divisor;
+    const double weightN = 0.5 / divisor;
+
+    // Transform sigma points into measurement space:
+    MatrixXd Zsig = Xsig_pred_.topLeftCorner(N_Z, N_SIGMA);
+
+    // Perform the update on the measurement space:
+    update(z, Zsig, R_lidar_, weight0, weightN, N_Z);
 }
 
 
+// TODO: NIS
+
 void UKF::updateRadar(const VectorXd &z) {
-    std::cout << "START updateRadar" << std::endl;
-
-    /**
-    TODO:
-
-    Complete this function! Use radar data to update the belief about the object's
-    position. Modify the state vector, x_, and covariance, P_.
-
-    You'll also need to calculate the radar NIS.
-    */
+    // std::cout << "START updateRadar" << std::endl;
 
     const short N_Z = 3;
 
@@ -291,16 +351,9 @@ void UKF::updateRadar(const VectorXd &z) {
     const double weight0 = LAMBDA / divisor;
     const double weightN = 0.5 / divisor;
 
-    // Create matrix for sigma points in measurement space:
-    MatrixXd Zsig = MatrixXd(N_Z, N_SIGMA);
-
-    // Mean predicted measurement:
-    VectorXd z_pred = VectorXd(N_Z);
-
-    // Measurement covariance matrix S:
-    MatrixXd S = MatrixXd(N_Z, N_Z);
-
     // Transform sigma points into measurement space:
+
+    MatrixXd Zsig = MatrixXd(N_Z, N_SIGMA);
 
     for (int i = 0; i < N_SIGMA; ++i) {
         VectorXd col = Xsig_pred_.col(i);
@@ -316,105 +369,6 @@ void UKF::updateRadar(const VectorXd &z) {
         Zsig.col(i) << rho, phi, v * (px * cos(yaw) + py * sin(yaw)) / KEEP_IN_RANGE(rho); 
     }
 
-    // Calculate mean predicted measurement:
-
-    z_pred = weight0 * Zsig.col(0);
-
-    for (int i = 1; i < N_SIGMA; ++i) {
-        z_pred += weightN * Zsig.col(i);
-    }
-
-    // Calculate measurement covariance matrix S:
-
-    VectorXd diff = Zsig.col(0) - z_pred;
-
-    // Normalize angle in range [-PI, PI]:
-
-    double phi = diff(1);
-    int times = phi / M_PI;
-
-    diff(1) = phi - M_PI * (times >= 0 ? ceil(times) : floor(times));
-
-    S = weight0 * diff * diff.transpose();
-
-    for (int i = 1; i < N_SIGMA; ++i) {
-        VectorXd diff = Zsig.col(i) - z_pred;
-
-        // Normalize angle in range [-PI, PI]:
-
-        const double phi = diff(1);
-        const int times = phi / M_PI;
-
-        diff(1) = phi - M_PI * (times >= 0 ? ceil(times) : floor(times));
-
-        S += weightN * diff * diff.transpose();
-    } 
-
-    S(0, 0) += std_radr_ * std_radr_;
-    S(1, 1) += std_radphi_ * std_radphi_;
-    S(2, 2) += std_radrd_ * std_radrd_;
-
-
-
-
-
-    // Update state mean and state covariance matrix:
-
-    // TODO: Called "estimate" in the previous project
-
-    // Create matrix for cross correlation Tc:
-    MatrixXd Tc = MatrixXd(N_X, N_Z);
-
-
-    // Calculate cross correlation matrix
-
-    Tc.fill(0.0);
-
-    for (int i = 0; i < N_SIGMA; ++i) {
-        // Calculate diff vectors:
-
-        VectorXd diffX = Xsig_pred_.col(i) - x_;
-        VectorXd diffZ = Zsig.col(i) - z_pred;
-
-        // Normalize angle in range [-PI, PI] for diffX:
-
-        const double yaw = diffX(3);
-        const int timesYaw = yaw / M_PI;
-
-        diffX(3) = yaw - M_PI * (timesYaw >= 0 ? ceil(timesYaw) : floor(timesYaw));
-
-        // Normalize angle in range [-PI, PI] for diffZ:
-
-        const double phi = diffZ(1);
-        const int timesPhi = phi / M_PI;
-
-        diffZ(1) = phi - M_PI * (timesPhi >= 0 ? ceil(timesPhi) : floor(timesPhi));
-
-        // Update Tc:
-        // TODO: FIX THIS
-
-        Tc += (i == 0 ? weight0 : weightN) * diffX * diffZ.transpose();
-    }
-
-    // Calculate Kalman gain K:
-
-    MatrixXd K = Tc * S.inverse();
-
-    // Update state mean and covariance matrix:
-
-    diff = z - z_pred;
-
-    // Normalize angle in range [-PI, PI] for diffX:
-
-    phi = diff(1);
-    times = phi / M_PI;
-
-    diff(1) = phi - M_PI * (times >= 0 ? ceil(times) : floor(times));
-
-
-    // Update state mean:
-    x_ += K * diff;
-
-    // Update covariance matrix:
-    P_ -= K * S * K.transpose();
+    // Perform the update on the measurement space:
+    update(z, Zsig, R_radar_, weight0, weightN, N_Z);
 }
