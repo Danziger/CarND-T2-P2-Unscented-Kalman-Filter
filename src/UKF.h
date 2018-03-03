@@ -31,9 +31,6 @@ class UKF {
     // Process noise standard deviation yaw acceleration in rad/s^2:
     double std_yawdd_;
 
-    // Weights of sigma points:
-    VectorXd weights_;
-
 
     /**
     * A helper method to calculate augmented sigma points.
@@ -49,7 +46,7 @@ class UKF {
     * Performs all the common update steps for lidar and radar (in measurement
     * space)
     */
-    void update(
+    double update(
         const VectorXd z,
         const MatrixXd Zsig,
         const MatrixXd R,
@@ -105,13 +102,13 @@ public:
      * Updates the state and the state covariance matrix using a laser measurement.
      * @param z The measurement at k+1
      */
-    void updateLidar(const VectorXd &z);
+    double updateLidar(const VectorXd &z);
 
     /**
      * Updates the state and the state covariance matrix using a radar measurement.
      * @param z The measurement at k+1
      */
-    void updateRadar(const VectorXd &z);
+    double updateRadar(const VectorXd &z);
 };
 
 #endif /* UKF_H */

@@ -16,7 +16,6 @@ using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
 
-
 // PRIVATE:
 
 
@@ -134,7 +133,7 @@ MatrixXd UKF::predictSigmaPoints(const double dt, const MatrixXd Xsig_aug) {
 }
 
 
-void UKF::update(
+double UKF::update(
     const VectorXd z,
     const MatrixXd Zsig,
     const MatrixXd R,
@@ -203,6 +202,8 @@ void UKF::update(
     // Update state mean and covariance matrix:
     x_ += K * diffZ;
     P_ -= K * S * K.transpose();
+
+    return diffZ.transpose() * S.inverse() * diffZ;
 }
 
 
@@ -319,7 +320,7 @@ void UKF::predict(const double dt) {
 
 // TODO: NIS
 
-void UKF::updateLidar(const VectorXd &z) {
+double UKF::updateLidar(const VectorXd &z) {
     // std::cout << "START updateLidar" << std::endl;
 
     const short N_Z = 2;
@@ -333,14 +334,14 @@ void UKF::updateLidar(const VectorXd &z) {
     // Transform sigma points into measurement space:
     MatrixXd Zsig = Xsig_pred_.topLeftCorner(N_Z, N_SIGMA);
 
-    // Perform the update on the measurement space:
-    update(z, Zsig, R_lidar_, weight0, weightN, N_Z);
+    // Perform the update on the measurement space and return the NIS for lidar
+    return update(z, Zsig, R_lidar_, weight0, weightN, N_Z);
 }
 
 
 // TODO: NIS
 
-void UKF::updateRadar(const VectorXd &z) {
+double UKF::updateRadar(const VectorXd &z) {
     // std::cout << "START updateRadar" << std::endl;
 
     const short N_Z = 3;
@@ -369,6 +370,6 @@ void UKF::updateRadar(const VectorXd &z) {
         Zsig.col(i) << rho, phi, v * (px * cos(yaw) + py * sin(yaw)) / KEEP_IN_RANGE(rho); 
     }
 
-    // Perform the update on the measurement space:
-    update(z, Zsig, R_radar_, weight0, weightN, N_Z);
+    // Perform the update on the measurement space and return the NIS for radar
+    return update(z, Zsig, R_radar_, weight0, weightN, N_Z);
 }

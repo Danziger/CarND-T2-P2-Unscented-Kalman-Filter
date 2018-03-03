@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <limits>
 
+
 /*
 
 TODO
@@ -17,11 +18,39 @@ The rest of the code can be common for all of them.
 */
 
 
+// PRIVATE:
+
+
+void UKFTracker::initialize(const MeasurementPackage &pack) {
+    const VectorXd measurements = pack.raw_measurements_;
+    const MeasurementPackage::SensorType type = pack.sensor_type_;
+
+    if (type == MeasurementPackage::RADAR) {
+        // Convert radar from polar to cartesian coordinates and initialize state:
+
+        const float rho = measurements[0]; // Range
+        const float phi = measurements[1]; // Bearing
+
+                                           // rho (range), phi (bearing), rho_dot (velocity)
+        ukf_.initState(rho * cos(phi), rho * sin(phi), 0, 0, 0);
+    } else if (type == MeasurementPackage::LASER) {
+        // Set the state with the initial location and zero velocity:
+
+        ukf_.initState(measurements[0], measurements[1], 0, 0, 0);
+    }
+
+    // OUTPUT initial value:
+    // cout << "INITIAL x = " << ekf_.getCurrentState().transpose() << endl;
+
+    previous_timestamp_ = pack.timestamp_;
+    is_initialized_ = true;
+}
+
+
+// PUBLIC:
+
+
 UKFTracker::UKFTracker() {
-    is_initialized_ = false;
-    previous_timestamp_ = 0;
-
-
     // Sensor measurement noises:
     // DO NOT MODIFY measurement noise values below these are provided by the sensor manufacturer.
 
@@ -100,16 +129,17 @@ UKFTracker::UKFTracker() {
 UKFTracker::~UKFTracker() {}
 
 
-void UKFTracker::processMeasurement(const MeasurementPackage &pack) {
+vector<double> UKFTracker::processMeasurement(const MeasurementPackage &pack) {
 
     // INITIALIZATION:
 
     if (!is_initialized_) {
         initialize(pack);
 
-        return; // Done initializing. No need to predict or update.
-    }
+        vector<double> empty(5);
 
+        return empty; // Done initializing. No need to predict or update.
+    }
 
     // PREDICTION:
 
@@ -124,44 +154,50 @@ void UKFTracker::processMeasurement(const MeasurementPackage &pack) {
 
     // UPDATE:
 
+    vector<double> NIS_stats;
+
     if (pack.sensor_type_ == MeasurementPackage::RADAR) {
-        ukf_.updateRadar(pack.raw_measurements_);
+        const double NIS_radar = ukf_.updateRadar(pack.raw_measurements_);
+
+        NIS_stats.push_back(NIS_radar);
+
+        ++total_radar_;
+
+        int i = -1;
+
+        for (vector<double>::iterator it = NIS_3_table_.begin(); it != NIS_3_table_.end(); ++it) {
+            if (NIS_radar > *it) {                
+                NIS_stats.push_back(100 * ++radar_NIS_results_[++i] / float(total_radar_));
+            } else {
+                NIS_stats.push_back(100 * radar_NIS_results_[++i] / float(total_radar_));
+            }
+        }
     } else {
-        ukf_.updateLidar(pack.raw_measurements_);
+        const double NIS_lidar = ukf_.updateLidar(pack.raw_measurements_);
+
+        NIS_stats.push_back(NIS_lidar);
+
+        ++total_lidar_;
+
+        int i = -1;
+
+        for (vector<double>::iterator it = NIS_2_table_.begin(); it != NIS_2_table_.end(); ++it) {
+            if (NIS_lidar > *it) {                ;
+                NIS_stats.push_back(100 * ++lidar_NIS_results_[++i] / float(total_lidar_));
+            } else {
+                NIS_stats.push_back(100 * lidar_NIS_results_[++i] / float(total_lidar_));
+            }
+        }
     }
 
     // OUTPUT current state and state covariance:
     // cout << "x_ = " << ekf_.x_ << endl;
     // cout << "P_ = " << ekf_.P_ << endl;
+
+    return NIS_stats;
 }
 
 
 VectorXd UKFTracker::getCurrentState() {
     return ukf_.getCurrentState();
-}
-
-
-void UKFTracker::initialize(const MeasurementPackage &pack) {
-    const VectorXd measurements = pack.raw_measurements_;
-    const MeasurementPackage::SensorType type = pack.sensor_type_;
-
-    if (type == MeasurementPackage::RADAR) {
-        // Convert radar from polar to cartesian coordinates and initialize state:
-
-        const float rho = measurements[0]; // Range
-        const float phi = measurements[1]; // Bearing
-
-        // rho (range), phi (bearing), rho_dot (velocity)
-        ukf_.initState(rho * cos(phi), rho * sin(phi), 0, 0, 0);
-    } else if (type == MeasurementPackage::LASER) {
-        // Set the state with the initial location and zero velocity:
-
-        ukf_.initState(measurements[0], measurements[1], 0, 0, 0);
-    }
-
-    // OUTPUT initial value:
-    // cout << "INITIAL x = " << ekf_.getCurrentState().transpose() << endl;
-
-    previous_timestamp_ = pack.timestamp_;
-    is_initialized_ = true;
 }
