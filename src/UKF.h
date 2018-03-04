@@ -101,12 +101,14 @@ public:
     /**
      * Updates the state and the state covariance matrix using a laser measurement.
      * @param z The measurement at k+1
+     * @return NIS value for current measurement.
      */
     double updateLidar(const VectorXd &z);
 
     /**
      * Updates the state and the state covariance matrix using a radar measurement.
      * @param z The measurement at k+1
+     * @return NIS value for current measurement.
      */
     double updateRadar(const VectorXd &z);
 };

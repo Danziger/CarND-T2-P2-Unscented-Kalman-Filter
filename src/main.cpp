@@ -8,8 +8,8 @@
 #include <math.h>
 #include <time.h>
 #include <iostream>
-#include <iomanip>
-#include <limits>
+#include <math.h>
+#include <time.h>
 
 
 #define SENSOR 'B'

@@ -31,11 +31,10 @@ void UKFTracker::initialize(const MeasurementPackage &pack) {
         const float rho = measurements[0]; // Range
         const float phi = measurements[1]; // Bearing
 
-                                           // rho (range), phi (bearing), rho_dot (velocity)
+       // rho (range), phi (bearing), rho_dot (velocity)
         ukf_.initState(rho * cos(phi), rho * sin(phi), 0, 0, 0);
     } else if (type == MeasurementPackage::LASER) {
         // Set the state with the initial location and zero velocity:
-
         ukf_.initState(measurements[0], measurements[1], 0, 0, 0);
     }
 
@@ -141,10 +140,11 @@ vector<double> UKFTracker::processMeasurement(const MeasurementPackage &pack) {
         return empty; // Done initializing. No need to predict or update.
     }
 
+
     // PREDICTION:
 
     // Compute the time elapsed between the current and previous measurements:
-    const float dt = (pack.timestamp_ - previous_timestamp_) / 1000000.0;	// In seconds.
+    const double dt = (pack.timestamp_ - previous_timestamp_) / 1000000.0;	// In seconds.
 
     previous_timestamp_ = pack.timestamp_;
 
@@ -154,50 +154,48 @@ vector<double> UKFTracker::processMeasurement(const MeasurementPackage &pack) {
 
     // UPDATE:
 
-    vector<double> NIS_stats;
-
-    if (pack.sensor_type_ == MeasurementPackage::RADAR) {
-        const double NIS_radar = ukf_.updateRadar(pack.raw_measurements_);
-
-        NIS_stats.push_back(NIS_radar);
-
-        ++total_radar_;
-
-        int i = -1;
-
-        for (vector<double>::iterator it = NIS_3_table_.begin(); it != NIS_3_table_.end(); ++it) {
-            if (NIS_radar > *it) {                
-                NIS_stats.push_back(100 * ++radar_NIS_results_[++i] / float(total_radar_));
-            } else {
-                NIS_stats.push_back(100 * radar_NIS_results_[++i] / float(total_radar_));
-            }
-        }
-    } else {
-        const double NIS_lidar = ukf_.updateLidar(pack.raw_measurements_);
-
-        NIS_stats.push_back(NIS_lidar);
-
-        ++total_lidar_;
-
-        int i = -1;
-
-        for (vector<double>::iterator it = NIS_2_table_.begin(); it != NIS_2_table_.end(); ++it) {
-            if (NIS_lidar > *it) {                ;
-                NIS_stats.push_back(100 * ++lidar_NIS_results_[++i] / float(total_lidar_));
-            } else {
-                NIS_stats.push_back(100 * lidar_NIS_results_[++i] / float(total_lidar_));
-            }
-        }
-    }
-
     // OUTPUT current state and state covariance:
     // cout << "x_ = " << ekf_.x_ << endl;
     // cout << "P_ = " << ekf_.P_ << endl;
 
-    return NIS_stats;
+    if (pack.sensor_type_ == MeasurementPackage::RADAR) {
+        const double NIS_radar = ukf_.updateRadar(pack.raw_measurements_);
+
+        return updateNIS(NIS_radar, total_radar_, NIS_3_table_, radar_NIS_results_);
+    } else {
+        const double NIS_lidar = ukf_.updateLidar(pack.raw_measurements_);
+
+        return updateNIS(NIS_lidar, total_lidar_, NIS_2_table_, lidar_NIS_results_);
+    }
 }
 
 
 VectorXd UKFTracker::getCurrentState() {
     return ukf_.getCurrentState();
+}
+
+
+vector<double> UKFTracker::updateNIS(
+    double current_NIS,
+    int &total_measurements,
+    vector<double> &NIS_table,
+    vector<int> &NIS_results
+) {
+    vector<double> NIS_stats;
+
+    NIS_stats.push_back(current_NIS);
+
+    ++total_measurements;
+
+    int i = -1;
+
+    for (vector<double>::iterator it = NIS_table.begin(); it != NIS_table.end(); ++it) {
+        if (current_NIS > *it) {                
+            NIS_stats.push_back(100 * ++NIS_results[++i] / total_measurements);
+        } else {
+            NIS_stats.push_back(100 * NIS_results[++i] / total_measurements);
+        }
+    }
+
+    return NIS_stats;
 }

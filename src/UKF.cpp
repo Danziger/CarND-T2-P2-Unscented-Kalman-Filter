@@ -199,10 +199,11 @@ double UKF::update(
         diffZ(1) = Tools::normalizeAngle(diffZ(1)); // Normalize angle in range [-PI, PI]
     }
 
-    // Update state mean and covariance matrix:
+    // New estimate. Update state mean and covariance matrix:
     x_ += K * diffZ;
     P_ -= K * S * K.transpose();
 
+    // Return NIS:
     return diffZ.transpose() * S.inverse() * diffZ;
 }
 

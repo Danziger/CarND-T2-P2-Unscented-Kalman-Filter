@@ -24,6 +24,7 @@ class UKFTracker {
     long long previous_timestamp_ = 0;
 
     // NIS stuff:
+
     int total_lidar_ = 0;
     int total_radar_ = 0;
 
@@ -46,8 +47,9 @@ public:
     virtual ~UKFTracker();
 
     /**
-    * Run the whole flow of the KF/EKF from here and return the NIS for
-    * lidar or radar, depending on the type of the input measurement.
+    * Run the whole flow of the UKF and updates NIS results.
+    * @return A vector containing the NIS value for the current measurement,
+    * either lidar or radar, plus NIS 95, NIS 90, NIS 10 and NIS 5.
     */
     vector<double> processMeasurement(const MeasurementPackage &pack);
 
@@ -55,6 +57,18 @@ public:
     * Get the current filter state as [px, py, vx, vy]
     */
     VectorXd getCurrentState();
+
+    /**
+    * Updates NIS results.
+    * @return A vector containing the NIS value for the current measurement,
+    * either lidar or radar, plus NIS 95, NIS 90, NIS 10 and NIS 5.
+    */
+    vector<double> updateNIS(
+        double current_NIS,
+        int &total_measurements,
+        vector<double> &NIS_table,
+        vector<int> &NIS_results
+    );
 };
 
 
