@@ -74,7 +74,12 @@ Interesting Resources
 
 - [Detailed explanations (55 videos) about Kalman Filters by Michel van Biezen @ iLectureOnline.](https://www.youtube.com/watch?v=CaCcOwJPytQ)
 
+- [A New Method for the Nonlinear Transformation of Means
+and Covariances in Filters and Estimators](https://www3.nd.edu/~lemmon/courses/ee67033/pubs/julier-ukf-tac-2000.pdf)
 
+- [Udacity Discussion Forum - Numerical instability of the implementation](https://discussions.udacity.com/t/numerical-instability-of-the-implementation/230449)
+
+- [Udacity Discussion Forum - UKF getting stuck on second dataset](https://discussions.udacity.com/t/ukf-getting-stuck-on-second-dataset/240080)
 
 
 --------
