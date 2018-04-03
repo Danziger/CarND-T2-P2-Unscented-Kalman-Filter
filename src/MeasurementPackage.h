@@ -4,6 +4,7 @@
 
 #include "Eigen/Dense"
 
+// TODO: Convert to struct
 
 class MeasurementPackage {
 
@@ -17,6 +18,8 @@ public:
     } sensor_type_;
 
     Eigen::VectorXd raw_measurements_;
+
+    Eigen::VectorXd gt_;
 };
 
 

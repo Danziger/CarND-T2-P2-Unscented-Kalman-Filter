@@ -12,16 +12,11 @@
 #define N_SIGMA 15 // 2 * N_A + 1
 #define LAMBDA -4 // 3 - N_A
 
-using Eigen::MatrixXd;
-using Eigen::VectorXd;
-
 
 // PRIVATE:
 
 
 MatrixXd UKF::calculateAugmentedSigmaPoints() {
-    // std::cout << "START calculateAugmentedSigmaPoints" << std::endl;
-
     // Create augmented covariance matrix and sigma point matrix:
     MatrixXd P_aug = MatrixXd(N_A, N_A);
     MatrixXd Xsig_aug = MatrixXd(N_A, N_SIGMA);
@@ -40,11 +35,30 @@ MatrixXd UKF::calculateAugmentedSigmaPoints() {
     P_aug(5, 5) = std_a_ * std_a_;
     P_aug(6, 6) = std_yawdd_ * std_yawdd_;
 
-    // std::cout << "P_aug" << std::endl << std::endl << P_aug << std::endl << std::endl;
+    // Create square root matrix while checking if we have numerical inestabiliy issues:
+    // See https://discussions.udacity.com/t/numerical-instability-of-the-implementation/230449
+    
+    // Instead of...:
+    // const MatrixXd L = P_aug.llt().matrixL();
 
+    // We do it this way:
 
-    // Create square root matrix:
-    const MatrixXd L = P_aug.llt().matrixL();
+    // 1. Compute the Cholesky decomposition of P_aug
+    Eigen::LLT<MatrixXd> lltOfPaug(P_aug);
+
+    // 2. Check for numerical inestability and throw an error if we have it:
+    if (lltOfPaug.info() == Eigen::NumericalIssue) {
+        // If decomposition fails, we have numerical issues.
+
+        // Eigen::EigenSolver<MatrixXd> es(P_aug);
+        // cout << "Eigenvalues of P_aug:" << endl << es.eigenvalues() << endl;
+        
+        throw range_error("LLT failed!");
+    }
+    
+    // 3. Get the lower triangle:    
+    const MatrixXd L = lltOfPaug.matrixL();
+
 
     // Create augmented sigma points:
 
@@ -57,15 +71,11 @@ MatrixXd UKF::calculateAugmentedSigmaPoints() {
     Xsig_aug.block(0, 1, N_A, N_A) = replicated_mean + matrix_sqrt_term;
     Xsig_aug.block(0, N_A + 1, N_A, N_A) = replicated_mean - matrix_sqrt_term;
 
-    // std::cout << "Xsig_out" << std::endl << std::endl << Xsig_aug << std::endl << std::endl;
-
     return Xsig_aug;
 }
 
 
 MatrixXd UKF::predictSigmaPoints(const double dt, const MatrixXd Xsig_aug) {
-    // std::cout << "START predictSigmaPoints" << std::endl;
-
     // Create matrix with predicted sigma points as columns:
     MatrixXd Xsig_pred = MatrixXd(N_X, N_SIGMA);
 
@@ -114,8 +124,6 @@ MatrixXd UKF::predictSigmaPoints(const double dt, const MatrixXd Xsig_aug) {
             const double c = b + yaw;
             const double yaw_cos = cos(yaw);
             const double yaw_sin = sin(yaw);
-
-            // std::cout << "v = " << vel << "yaw = " << yaw_rate << "a = " << a << std::endl;
 
             prediction <<
                 px + a * (sin(c) - yaw_sin) + yaw_cos * dt2_n_acc_by2,
@@ -213,21 +221,25 @@ double UKF::update(
 
 UKF::UKF() {}
 
+
 UKF::~UKF() {}
 
 
-void UKF::initMatrixes(
-    const MatrixXd &P,
+void UKF::setR(
     const MatrixXd &R_lidar,
     const MatrixXd &R_radar
 ) {
-    P_ = P;
     R_lidar_ = R_lidar;
     R_radar_ = R_radar;
 }
 
 
-void UKF::initState(
+void UKF::setP(const MatrixXd &P) {
+    P_ = P;
+}
+
+
+void UKF::setState(
     const float px,
     const float py,
     const float v_abs,
@@ -237,20 +249,16 @@ void UKF::initState(
     x_ = VectorXd(5);
 
     x_ << px, py, v_abs, yaw_angle, yaw_rate;
-
-    // std::cout << "END initState" << std::endl;
 }
 
 
-void UKF::initNoise(const float std_a, const float std_yawdd) {
+void UKF::setNoise(const float std_a, const float std_yawdd) {
     std_a_ = std_a;
     std_yawdd_ = std_yawdd;
 }
 
 
 VectorXd UKF::getCurrentState() {
-    // std::cout << "START getCurrentState" << std::endl;
-
     const double px = x_(0);
     const double py = x_(1);
     const double v = x_(2);
@@ -263,9 +271,12 @@ VectorXd UKF::getCurrentState() {
 }
 
 
-void UKF::predict(const double dt) {
-    // std::cout << "START predict" << std::endl;
+MatrixXd UKF::getP() {
+    return P_;
+}
 
+
+void UKF::predict(const double dt) {
     // Calculate sigma points and predict sigma points at timestep k + 1:
 
     const MatrixXd Xsig_pred = predictSigmaPoints(dt, calculateAugmentedSigmaPoints());
@@ -319,11 +330,7 @@ void UKF::predict(const double dt) {
 }
 
 
-// TODO: NIS
-
 double UKF::updateLidar(const VectorXd &z) {
-    // std::cout << "START updateLidar" << std::endl;
-
     const short N_Z = 2;
 
     // Calculate weights:
@@ -340,11 +347,7 @@ double UKF::updateLidar(const VectorXd &z) {
 }
 
 
-// TODO: NIS
-
 double UKF::updateRadar(const VectorXd &z) {
-    // std::cout << "START updateRadar" << std::endl;
-
     const short N_Z = 3;
 
     // Calculate weights:

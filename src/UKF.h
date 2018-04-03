@@ -8,6 +8,7 @@
 
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
+using namespace std;
 
 
 class UKF {
@@ -62,19 +63,25 @@ public:
     virtual ~UKF();
 
     /**
-    * Initializes the state covariance matrix.
-    * @param P_in State covariance matrix
+    * Initializes the measurement covariance matrixes.
+    * @param R_lidar Measurement covariance matrix for lidar.
+    * @param R_radar Measurement covariance matrix for radar.
     */
-    void initMatrixes(
-        const MatrixXd &P,
+    void setR(
         const MatrixXd &R_lidar,
         const MatrixXd &R_radar
     );
 
     /**
+    * Initializes the state covariance matrix.
+    * @param P_in State covariance matrix
+    */
+    void setP(const MatrixXd &P);
+
+    /**
     * Initializes the current state. 
     */
-    void initState(
+    void setState(
         const float px,
         const float py,
         const float v_abs,
@@ -85,12 +92,18 @@ public:
     /**
     * Initializes the process and measurement noises.
     */
-    void initNoise(const float std_a, const float std_yawdd);
+    void setNoise(const float std_a, const float std_yawdd);
 
     /**
     * Get the current filter state as [px, py, vx, vy]
     */
     VectorXd getCurrentState();
+
+    /**
+    * Get state covariance matrix P.
+    * @return State covariance matrix P.
+    */
+    MatrixXd getP();
 
     /**
      * Predicts sigma points, the state, and the state covariance matrix.

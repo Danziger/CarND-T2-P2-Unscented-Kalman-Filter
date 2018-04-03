@@ -12,16 +12,8 @@
 #include <time.h>
 
 
-#define SENSOR 'B'
+#define SENSOR 'B' // TODO: Prompt the user for this!
 
-#define RMSE_X_LIMIT 0.09
-#define RMSE_Y_LIMIT 0.10
-#define RMSE_VX_LIMIT 0.40
-#define RMSE_VY_LIMIT 0.30
-
-#define C_RED "\033[38;1;31m"
-#define C_GREEN "\033[38;0;32m"
-#define C_RST "\033[0;m"
 
 using namespace std;
 using json = nlohmann::json;
@@ -51,31 +43,14 @@ int main() {
     // Create a EKFTracker instance
     UKFTracker tracker; // TODO: This can use the abstract class type
 
-    // Used to compute the RMSE later:
-    // TODO: This should probably be on the tracker!
-    Tools tools;
-    vector<VectorXd> estimations;
-    vector<VectorXd> ground_truth;
-
-    // To measure execution time:
-    long double time = 0;
-    int points = 0;
-
     // MESSAGE PROCESSING:
 
-    h.onMessage([
-        &time,
-        &points,
-        &tracker,
-        &tools,
-        &estimations,
-        &ground_truth
-    ](
+    h.onMessage([ &tracker ](
         uWS::WebSocket<uWS::SERVER> ws,
         char *data,
         size_t length,
         uWS::OpCode opCode
-        ) {
+    ) {
 
         // "42" at the start of the message means there's a websocket message event:
         // - The 4 signifies a websocket message
@@ -111,124 +86,87 @@ int main() {
                         meas_package.sensor_type_ = MeasurementPackage::LASER;
 
                         // Read measurements:
-                        float px;
-                        float py;
+
+                        double px;
+                        double py;
 
                         iss >> px;
                         iss >> py;
 
                         // Set them in the package:
+
                         meas_package.raw_measurements_ = VectorXd(2);
                         meas_package.raw_measurements_ << px, py;
+
                     } else if (SENSOR != 'L' && sensor_type.compare("R") == 0) {
 
                         // Set sensor type:
                         meas_package.sensor_type_ = MeasurementPackage::RADAR;
 
                         // Read measurements:
-                        float ro;
-                        float theta;
-                        float ro_dot;
+
+                        double ro;
+                        double theta;
+                        double ro_dot;
 
                         iss >> ro;
                         iss >> theta;
                         iss >> ro_dot;
 
                         // Set them in the package:
+
                         meas_package.raw_measurements_ = VectorXd(3);
                         meas_package.raw_measurements_ << ro, theta, ro_dot;
+
                     }
 
-                    // Read timestamp and set it in the package:
+                    // Read timestamp, x, y, vx and vy ground truth values:
+
                     long long timestamp;
+                    double x_gt;
+                    double y_gt;
+                    double vx_gt;
+                    double vy_gt;
+
                     iss >> timestamp;
-                    meas_package.timestamp_ = timestamp;
-
-                    // Read x, y, vx and vy ground truth values:
-                    float x_gt;
-                    float y_gt;
-                    float vx_gt;
-                    float vy_gt;
-
                     iss >> x_gt;
                     iss >> y_gt;
                     iss >> vx_gt;
                     iss >> vy_gt;
 
-                    // Create a VectorXd with them and push them to the global ground_truth vector:
-                    VectorXd gt_values(4);
-                    gt_values(0) = x_gt;
-                    gt_values(1) = y_gt;
-                    gt_values(2) = vx_gt;
-                    gt_values(3) = vy_gt;
+                    // Set them in the package:
 
-                    ground_truth.push_back(gt_values);
+                    meas_package.timestamp_ = timestamp;
+                    meas_package.gt_ = VectorXd(4);
+                    meas_package.gt_ << x_gt, y_gt, vx_gt, vy_gt;
 
-                    // Measure start time:
-                    clock_t begin = clock();
 
-                    // Call ProcessMeasurment(meas_package) for Kalman filter
-                    vector<double> NIS = tracker.processMeasurement(meas_package);
+                    // Process the current measurement:
+                    tracker.processMeasurement(meas_package);
 
-                    // Push the current estimated x, y positon from the Kalman filter's state vector
+                    // Get the current state:
                     VectorXd state = tracker.getCurrentState();
 
-                    // Measure end time:
-                    clock_t end = clock();
+                    // Get the current RMSE:
+                    VectorXd RMSE = tracker.getCurrentRMSE();
 
-                    // Update average time:
-                    time += (long double)(end - begin) / CLOCKS_PER_SEC;
+                    // Get all individual components from the current state and RMSE:
 
-                    // Get px and py and save the state:
-                    const float px = state(0);
-                    const float py = state(1);
+                    const double px = state(0);
+                    const double py = state(1);
 
-                    estimations.push_back(state);
-
-                    // Calculate RMSE:
-                    VectorXd RMSE = tools.calculateRMSE(estimations, ground_truth);
-
-                    const float RMSE_X = RMSE(0);
-                    const float RMSE_Y = RMSE(1);
-                    const float RMSE_VX = RMSE(2);
-                    const float RMSE_VY = RMSE(3);
-
-                    // Print stats:
-
-                    if (points++ % 10 == 0) {
-                        cout
-                            << "                  │                                    │" << endl
-                            << "     #  S    TIME │  RMSE X   RMSE Y  RMSE VX  RMSE VY │     NIS   NIS 95   NIS 90   NIS 10    NIS 5" << endl;
-                    }
-
-                    cout
-                        << "  " << setfill(' ') << setw(4) << points
-                        << "  " << sensor_type
-                        << setprecision(0) << fixed
-                        << setfill(' ') << setw(5) << 1000000 * time / points << " us"
-                        << " │ "
-                        << setprecision(3) << fixed
-                        << "  " << (RMSE_X > RMSE_X_LIMIT ? C_RED : C_GREEN) << RMSE_X
-                        << "    " << (RMSE_Y > RMSE_Y_LIMIT ? C_RED : C_GREEN) << RMSE_Y
-                        << "    " << (RMSE_VX > RMSE_VX_LIMIT ? C_RED : C_GREEN) << RMSE_VX
-                        << "    " << (RMSE_VY > RMSE_VY_LIMIT ? C_RED : C_GREEN) << RMSE_VY
-                        << C_RST << " │ "
-                        << setprecision(3) << fixed
-                        << setfill(' ') << setw(7) << NIS[0] << "  "
-                        << setprecision(1) << fixed
-                        << setfill(' ') << setw(5) << NIS[1] << " %  "
-                        << setfill(' ') << setw(5) << NIS[2] << " %  "
-                        << setfill(' ') << setw(5) << NIS[3] << " %  "
-                        << setfill(' ') << setw(5) << NIS[4] << " %" << endl;
+                    const double RMSE_X = RMSE(0);
+                    const double RMSE_Y = RMSE(1);
+                    const double RMSE_VX = RMSE(2);
+                    const double RMSE_VY = RMSE(3);
 
                     // Send estimated position and RMSEs back to the simulator:
+
                     json msgJson;
 
-                    // Position:
                     msgJson["estimate_x"] = px;
                     msgJson["estimate_y"] = py;
 
-                    // RMSEs:
                     msgJson["rmse_x"] = RMSE_X;
                     msgJson["rmse_y"] = RMSE_Y;
                     msgJson["rmse_vx"] = RMSE_VX;
@@ -236,10 +174,6 @@ int main() {
 
                     auto msg = "42[\"estimate_marker\"," + msgJson.dump() + "]";
 
-                    // Log it:
-                    // cout << msg << endl << endl;
-
-                    // Send it:
                     ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
 
                 }
@@ -267,9 +201,11 @@ int main() {
 
     h.onConnection([&h](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
 
+        // TODO: Create function to print this kind of messages with the bar and create a constant for the bar
+
         cout
             << endl
-            << " Connected!" << endl
+            << "   Connected!" << endl
             << endl
             << "──────────────────────────────────────────────────────" << endl
             << endl;
@@ -279,7 +215,7 @@ int main() {
     h.onDisconnection([&h](uWS::WebSocket<uWS::SERVER> ws, int code, char *message, size_t length) {
         ws.close();
 
-        cout << "Disconnected!" << endl << endl << endl;
+        cout << "   Disconnected!" << endl << endl << endl;
     });
 
     const int port = 4567;
@@ -288,12 +224,12 @@ int main() {
 
         cout
             << endl
-            << " Listening on port " << port << "..." << endl
+            << "   Listening on port " << port << "..." << endl
             << endl
             << "──────────────────────────────────────────────────────" << endl;
 
     } else {
-        cerr << endl << "Failed to listen on port" << port << "!" << endl << endl;
+        cerr << endl << "   Failed to listen on port" << port << "!" << endl << endl;
 
         return -1;
     }
