@@ -81,6 +81,8 @@ and Covariances in Filters and Estimators](https://www3.nd.edu/~lemmon/courses/e
 
 - [Udacity Discussion Forum - UKF getting stuck on second dataset](https://discussions.udacity.com/t/ukf-getting-stuck-on-second-dataset/240080)
 
+- [Self-Driving Car Project Q&A | Unscented Kalman Filters](https://www.youtube.com/watch?v=gej_-2hxgck)
+
 
 --------
 
