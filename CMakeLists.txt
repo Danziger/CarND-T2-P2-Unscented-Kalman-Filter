@@ -2,9 +2,11 @@ project(UnscentedKF)
 
 cmake_minimum_required (VERSION 3.5)
 
-add_definitions(-std=c++11)
+# -g allows for gdb debugging
+# -03 enables optimizations for best performance
+add_definitions(-std=c++11 -O3)
 
-set(CXX_FLAGS "-Wall")
+set(CXX_FLAGS "-Wall -O3 -funroll-loops")
 set(CMAKE_CXX_FLAGS "${CXX_FLAGS}")
 
 set(sources src/main.cpp src/Tools.cpp src/UKFTracker.cpp src/UKF.cpp src/Tools.h src/UKFTracker.h src/UKF.h)
