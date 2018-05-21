@@ -1,4 +1,4 @@
-project(UnscentedKF)
+project(UKF)
 
 cmake_minimum_required (VERSION 3.5)
 
@@ -8,6 +8,7 @@ add_definitions(-std=c++11 -O3)
 
 set(CXX_FLAGS "-Wall -O3 -funroll-loops")
 set(CMAKE_CXX_FLAGS "${CXX_FLAGS}")
+# set(CMAKE_VERBOSE_MAKEFILE ON)
 
 set(sources src/main.cpp src/Tools.cpp src/UKFTracker.cpp src/UKF.cpp src/Tools.h src/UKFTracker.h src/UKF.h)
 
@@ -23,6 +24,6 @@ link_directories(/usr/local/Cellar/libuv/1*/lib)
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin") 
 
 
-add_executable(UnscentedKF ${sources})
+add_executable(UKF ${sources})
 
-target_link_libraries(UnscentedKF z ssl uv uWS)
+target_link_libraries(UKF z ssl uv uWS)
