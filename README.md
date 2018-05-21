@@ -13,6 +13,8 @@ In this project utilize an Unscented Kalman Filter (UKF) to estimate the state o
 
 To test it, [Term 2 Simulator](https://github.com/udacity/self-driving-car-sim/releases) need to be used. The latest version of `main.cpp` used to run this project without the simulator can be found [here](https://github.com/udacity/CarND-Unscented-Kalman-Filter-Project/blob/10814755085e9e8b34050216baf73abaa6f1e9e9/src/main.cpp).
 
+If you are looking for Udacity's started code project, you can find it [here](https://github.com/udacity/CarND-Unscented-Kalman-Filter-Project).
+
 
 Dependencies
 ------------
