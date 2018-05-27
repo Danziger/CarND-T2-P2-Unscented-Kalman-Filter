@@ -1,4 +1,5 @@
-#include "Tools.h"
+#include "tools.h"
+#include "format.h"
 
 #include <iostream>
 #include <sstream>
@@ -6,20 +7,12 @@
 #include <iomanip>
 
 
-#define C_RED "\033[38;5;196m"
-#define C_RST "\033[0;m"
-
-
 using Eigen::VectorXd;
 using Eigen::MatrixXd;
 using std::vector;
 
 
-Tools::Tools() {}
-Tools::~Tools() {}
-
-
-VectorXd Tools::calculateRMSE(
+VectorXd tools::calculateRMSE(
     const vector<VectorXd> &estimations,
     const vector<VectorXd> &groundTruth
 ) {
@@ -59,13 +52,20 @@ VectorXd Tools::calculateRMSE(
 }
 
 
-double Tools::normalizeAngle(double angle) {
+double tools::normalizeAngle(double angle) {
     const int times = angle / M_PI;
 
     return angle - M_PI * (times >= 0 ? ceil(times) : floor(times));
 }
 
-double Tools::prompt(string name, string unit, double def, double min, double max) {
+
+double tools::prompt(
+    string name,
+    string unit,
+    double def,
+    double min,
+    double max
+) {
     string raw;
     double value;
 
@@ -98,5 +98,4 @@ double Tools::prompt(string name, string unit, double def, double min, double ma
 
         cout << endl;
     }
-
 }

@@ -1,6 +1,8 @@
 ﻿#include "UKFTracker.h"
-#include "Tools.h"
-#include "Eigen/Dense"
+#include "common/MeasurementPackage.h"
+#include "common/tools.h"
+#include "common/format.h"
+#include "common/Eigen-3.3/Dense"
 
 #include <iostream>
 #include <iomanip>
@@ -13,12 +15,6 @@
 #define RMSE_Y_LIMIT 0.10
 #define RMSE_VX_LIMIT 0.40
 #define RMSE_VY_LIMIT 0.30
-
-#define C_RED "\033[38;5;196m"
-#define C_GREEN "\033[38;5;28m"
-#define C_TURQUOISE "\033[38;5;30m"
-#define C_RST "\033[0;m"
-#define BEEP "\a"
 
 
 // DO NOT MODIFY sensor measurement noise values below these are provided by the sensor manufacturer.
@@ -121,12 +117,12 @@ void UKFTracker::initialize(const MeasurementPackage &pack) {
     cout << setprecision(2) << fixed << endl;
 
     // Process noise standard deviation longitudinal acceleration in MET / S ^ 2
-    cout << "──────────────────────────────────────────────────────" << endl << endl;
-    const double std_a = Tools::prompt("STD DEV LNG ACC", "MET / S ^ 2", 1, 0, 100);
+    cout << SEPARATOR << endl << endl;
+    const double std_a = tools::prompt("STD DEV LNG ACC", "MET / S ^ 2", 1, 0, 100);
 
     // Process noise standard deviation yaw acceleration in RAD / S ^ 2
-    cout << "──────────────────────────────────────────────────────" << endl << endl;
-    const double std_yawdd = Tools::prompt("STD DEV YAW ACC", "RAD / S ^ 2", 0.5, 0, 100);
+    cout << SEPARATOR << endl << endl;
+    const double std_yawdd = tools::prompt("STD DEV YAW ACC", "RAD / S ^ 2", 0.5, 0, 100);
 
     // Set them in the UKF:
     ukf_.setNoise(std_a, std_yawdd);
@@ -138,12 +134,12 @@ void UKFTracker::initialize(const MeasurementPackage &pack) {
     // Log summary of params that will be used:
 
     cout
-        << "──────────────────────────────────────────────────────" << endl
+        << SEPARATOR << endl
         << endl
         << "   STD DEV LNG ACC = " << setfill(' ') << setw(5) << std_a << " MET / S ^ 2" << endl
         << "   STD DEV YAW ACC = " << setfill(' ') << setw(5) << std_yawdd << " RAD / S ^ 2" << endl
         << endl
-        << "──────────────────────────────────────────────────────" << endl;
+        << SEPARATOR << endl;
 
 
     // Initialize previous_timestamp_:
@@ -204,10 +200,10 @@ void UKFTracker::log(bool ok, char sensor, vector<double> NIS) {
         << setfill(' ') << setw(5) << 1000000 * time_ / total_ << " us"
         << " │ "
         << setprecision(3) << fixed
-        << "  " << (RMSE_X > RMSE_X_LIMIT ? C_RED : C_TURQUOISE) << RMSE_X
-        << "    " << (RMSE_Y > RMSE_Y_LIMIT ? C_RED : C_TURQUOISE) << RMSE_Y
-        << "    " << (RMSE_VX > RMSE_VX_LIMIT ? C_RED : C_TURQUOISE) << RMSE_VX
-        << "    " << (RMSE_VY > RMSE_VY_LIMIT ? C_RED : C_TURQUOISE) << RMSE_VY
+        << "  " << (RMSE_X > RMSE_X_LIMIT ? C_RED : C_GREEN) << RMSE_X
+        << "    " << (RMSE_Y > RMSE_Y_LIMIT ? C_RED : C_GREEN) << RMSE_Y
+        << "    " << (RMSE_VX > RMSE_VX_LIMIT ? C_RED : C_GREEN) << RMSE_VX
+        << "    " << (RMSE_VY > RMSE_VY_LIMIT ? C_RED : C_GREEN) << RMSE_VY
         << C_RST << " │ "
         << setprecision(3) << fixed
         << setfill(' ') << setw(7) << NIS[0] << "  "
@@ -216,7 +212,6 @@ void UKFTracker::log(bool ok, char sensor, vector<double> NIS) {
         << setfill(' ') << setw(5) << NIS[2] << " %  "
         << setfill(' ') << setw(5) << NIS[3] << " %  "
         << setfill(' ') << setw(5) << NIS[4] << " %" << endl;
-
 }
 
 
@@ -283,7 +278,7 @@ void UKFTracker::processMeasurement(const MeasurementPackage &pack) {
     } catch (std::range_error e) {
         ok = false;
 
-        ++inestability_;
+        ++inestability_; // TODO: IS THIS USERD?
 
         // cout << BEEP;
 
@@ -298,7 +293,6 @@ void UKFTracker::processMeasurement(const MeasurementPackage &pack) {
 
 
     // UPDATE:
-
     // Update UKF, NIS and RSME:
 
     // OUTPUT current state and state covariance:

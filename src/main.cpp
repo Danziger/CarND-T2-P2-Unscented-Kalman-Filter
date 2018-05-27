@@ -1,15 +1,12 @@
-﻿#include "Tools.h"
-#include "UKFTracker.h"
-#include "colors.h"
+﻿#include "UKFTracker.h"
 
-#include "json.hpp"
+#include "common/JSON-Lohmann-2.1.1/json.hpp"
+#include "common/format.h"
+#include "common/helpers.h"
 
 #include <uWS/uWS.h>
 #include <math.h>
-#include <time.h>
 #include <iostream>
-#include <math.h>
-#include <time.h>
 
 
 #define SENSOR 'B' // TODO: Prompt the user for this!
@@ -20,31 +17,10 @@ using json = nlohmann::json;
 using namespace std;
 
 
-// HELPER FUNCTIONS:
-
-/*
-* Checks if the SocketIO event has JSON data.
-* If there is data the JSON object in string format will be returned,
-* else the empty string "" will be returned.
-*/
-string hasData(const string s) {
-    const auto found_null = s.find("null");
-    const auto b1 = s.find_first_of("[");
-    const auto b2 = s.rfind("}]");
-
-    if (found_null != string::npos) {
-        return "";
-    } else if (b1 != string::npos && b2 != string::npos) {
-        return s.substr(b1, b2 - b1 + 2);
-    }
-
-    return "";
-}
-
-
 // MAIN:
 
 int main() {
+
     // Create a EKFTracker instance
     UKFTracker tracker; // TODO: This can use the abstract class type
 
@@ -52,9 +28,7 @@ int main() {
 
     uWS::Hub h;  // Initialize WebSocket.
 
-    h.onMessage([
-        &tracker
-    ](
+    h.onMessage([ &tracker ](
         uWS::WebSocket<uWS::SERVER> ws,
         char *data,
         size_t length,
@@ -70,7 +44,7 @@ int main() {
             return;
         }
 
-        const string s = hasData(sdata);
+        const string s = helpers::hasData(sdata);
 
         if (s == "") {
             // Manual driving:
@@ -82,7 +56,7 @@ int main() {
             return;
         }
 
-        const auto j = json::parse(s);
+        const json j = json::parse(s);
         const string event = j[0].get<string>();
 
         if (event != "telemetry") {
@@ -140,7 +114,6 @@ int main() {
 
             meas_package.raw_measurements_ = VectorXd(3);
             meas_package.raw_measurements_ << ro, theta, ro_dot;
-
         }
 
         // Read timestamp, x, y, vx and vy ground truth values:
@@ -184,17 +157,16 @@ int main() {
 
         // Send estimated position and RMSEs back to the simulator:
 
-        json msgJson;
+        const json msgJson = {
+            { "estimate_x", px      },
+            { "estimate_y", py      },
+            { "rmse_x",     RMSE_X  },
+            { "rmse_y",     RMSE_Y  },
+            { "rmse_vx",    RMSE_VX },
+            { "rmse_vy",    RMSE_VY }
+        };
 
-        msgJson["estimate_x"] = px;
-        msgJson["estimate_y"] = py;
-
-        msgJson["rmse_x"] = RMSE_X;
-        msgJson["rmse_y"] = RMSE_Y;
-        msgJson["rmse_vx"] = RMSE_VX;
-        msgJson["rmse_vy"] = RMSE_VY;
-
-        auto msg = "42[\"estimate_marker\"," + msgJson.dump() + "]";
+        const string msg = "42[\"estimate_marker\"," + msgJson.dump() + "]";
 
         // Send it:
         ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
@@ -230,7 +202,7 @@ int main() {
             << endl
             << " Connected!" << endl
             << endl
-            << "──────────────────────────────────────────────────────" << endl
+            << SEPARATOR << endl
             << endl;
     });
 
@@ -244,7 +216,11 @@ int main() {
     ) {
         ws.close();
 
-        std::cout << "Disconnected!" << std::endl << std::endl << std::endl;
+        cout
+            << endl
+            << "Disconnected!" << endl
+            << endl
+            << SEPARATOR << endl;
     });
 
     // START LISTENING:
@@ -257,10 +233,15 @@ int main() {
             << endl
             << " Listening on port " << port << "..." << endl
             << endl
-            << "──────────────────────────────────────────────────────" << endl;
+            << SEPARATOR << endl;
 
     } else {
-        std::cerr << std::endl << "Failed to listen on port" << port << "!" << std::endl << std::endl;
+
+        cerr
+            << endl
+            << "Failed to listen on port" << port << "!"
+            << endl
+            << SEPARATOR << endl;
 
         return -1;
     }

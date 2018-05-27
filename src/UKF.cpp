@@ -1,4 +1,6 @@
 #include "UKF.h"
+#include "common/tools.h"
+#include "common/Eigen-3.3/Dense"
 
 #include <iostream>
 
@@ -163,13 +165,13 @@ double UKF::update(
 
     // Calculate initial S:
     VectorXd diffZ0 = Zsig.col(0) - z_pred;
-    diffZ0(1) = Tools::normalizeAngle(diffZ0(1)); // Normalize angle in range [-PI, PI]
+    diffZ0(1) = tools::normalizeAngle(diffZ0(1)); // Normalize angle in range [-PI, PI]
 
     S = weight0 * diffZ0 * diffZ0.transpose();
 
     // Calculate initial Tc:
     VectorXd diffX0 = Xsig_pred_.col(0) - x_;
-    diffX0(3) = Tools::normalizeAngle(diffX0(3)); // Normalize angle in range [-PI, PI]
+    diffX0(3) = tools::normalizeAngle(diffX0(3)); // Normalize angle in range [-PI, PI]
 
     Tc = weight0 * diffX0 * diffZ0.transpose();
 
@@ -181,14 +183,14 @@ double UKF::update(
 
         // TODO: BAAAAAAAAAAAAD!
         if (N_Z == 3) {
-            diffZ(1) = Tools::normalizeAngle(diffZ(1)); // Normalize angle in range [-PI, PI]
+            diffZ(1) = tools::normalizeAngle(diffZ(1)); // Normalize angle in range [-PI, PI]
         }
 
         S += weightN * diffZ * diffZ.transpose();
 
         // Calculate Tc's term i:
         VectorXd diffX = Xsig_pred_.col(i) - x_;
-        diffX(3) = Tools::normalizeAngle(diffX(3)); // Normalize angle in range [-PI, PI]
+        diffX(3) = tools::normalizeAngle(diffX(3)); // Normalize angle in range [-PI, PI]
 
         Tc += weightN * diffX * diffZ.transpose();
     } 
@@ -204,7 +206,7 @@ double UKF::update(
 
     // TODO: BAAAAAAAAAAAAD!
     if (N_Z == 3) {
-        diffZ(1) = Tools::normalizeAngle(diffZ(1)); // Normalize angle in range [-PI, PI]
+        diffZ(1) = tools::normalizeAngle(diffZ(1)); // Normalize angle in range [-PI, PI]
     }
 
     // New estimate. Update state mean and covariance matrix:
@@ -308,7 +310,7 @@ void UKF::predict(const double dt) {
     // TODO: Could be DRY-ed
 
     VectorXd diff = Xsig_pred.col(0) - x;
-    diff(3) = Tools::normalizeAngle(diff(3)); // Normalize angle in range [-PI, PI]
+    diff(3) = tools::normalizeAngle(diff(3)); // Normalize angle in range [-PI, PI]
 
     // Update predicted covariance matrix:
 
@@ -316,7 +318,7 @@ void UKF::predict(const double dt) {
 
     for (int i = 1; i < N_SIGMA; ++i) {
         VectorXd diff = Xsig_pred.col(i) - x;
-        diff(3) = Tools::normalizeAngle(diff(3)); // Normalize angle in range [-PI, PI]
+        diff(3) = tools::normalizeAngle(diff(3)); // Normalize angle in range [-PI, PI]
 
         // Update predicted covariance matrix:
 

@@ -10,8 +10,19 @@ set(CXX_FLAGS "-Wall -O3 -funroll-loops")
 set(CMAKE_CXX_FLAGS "${CXX_FLAGS}")
 # set(CMAKE_VERBOSE_MAKEFILE ON)
 
-set(sources src/main.cpp src/Tools.cpp src/UKFTracker.cpp src/UKF.cpp src/Tools.h src/UKFTracker.h src/UKF.h)
-
+set(SOURCES
+    src/common/format.h
+    src/common/helpers.cpp
+    src/common/helpers.h
+    src/common/MeasurementPackage.h
+    src/common/tools.cpp
+    src/common/tools.h
+    src/UKF.cpp
+    src/UKF.h
+    src/UKFTracker.cpp
+    src/UKFTracker.h
+    src/main.cpp
+)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin") 
 
@@ -24,6 +35,6 @@ link_directories(/usr/local/Cellar/libuv/1*/lib)
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin") 
 
 
-add_executable(UKF ${sources})
+add_executable(UKF ${SOURCES})
 
 target_link_libraries(UKF z ssl uv uWS)

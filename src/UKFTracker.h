@@ -2,9 +2,9 @@
 #define EKFTracker_H_
 
 
-#include "MeasurementPackage.h"
 #include "UKF.h"
-#include "Eigen/Dense"
+#include "common/MeasurementPackage.h"
+#include "common/Eigen-3.3/Dense"
 
 
 using Eigen::MatrixXd;
@@ -72,6 +72,7 @@ class UKFTracker {
     * Logs measurement index, sensor type, execution time, RMSE and NIS values to screen.
     */
     void log(bool ok, char sensor, vector<double> NIS);
+
 
 public:
 

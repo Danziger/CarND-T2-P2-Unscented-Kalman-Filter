@@ -2,13 +2,10 @@
 #define MEASUREMENT_PACKAGE_H_
 
 
-#include "Eigen/Dense"
+#include "Eigen-3.3/Dense"
 
-// TODO: Convert to struct
 
-class MeasurementPackage {
-
-public:
+struct MeasurementPackage {
 
     long long timestamp_;
 
